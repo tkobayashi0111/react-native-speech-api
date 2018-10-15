@@ -13,7 +13,7 @@ const audioPath = AudioUtils.DocumentDirectoryPath + '/test.awb';
 
 export default class App extends Component {
   state = {
-    path: ''
+    soundObj: null,
   };
 
   componentDidMount() {
@@ -21,14 +21,22 @@ export default class App extends Component {
       SampleRate: 16000,
       Channels: 1,
       AudioEncoding: 'amr_wb',
+      IncludeBase64: true,
     });
 
     AudioRecorder.onProgress = ({ currentTime }) => {
       console.log(currentTime);
       if (currentTime >= 5) {
-        this.stopRecording();
+        AudioRecorder.stopRecording();
       }
     };
+
+    AudioRecorder.onFinished = object => {
+      console.log(object);
+      this.setState({
+        soundObj: object,
+      });
+    }
   }
 
   async startRecording() {
@@ -36,17 +44,13 @@ export default class App extends Component {
     return await AudioRecorder.startRecording();
   }
 
-  async stopRecording() {
-    const path = await AudioRecorder.stopRecording();
-    console.log(path);
-    this.setState({
-      path,
-    });
-  }
-
   play() {
-    const { path } = this.state;
-    if (path === '') return;
+    const { soundObj } = this.state;
+    console.log(soundObj);
+    if (!soundObj) return;
+
+    const path = soundObj.audioFileURL.match(/file:\/\/(.*)/)[1];
+    console.log(path);
     const sound = new Sound(path, Sound.DOCUMENT, (error) => {
       if (error) {
         console.log(error);
