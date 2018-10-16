@@ -1,5 +1,5 @@
 import React, { Component } from 'react';
-import { Platform, StyleSheet, Text, View, Button } from 'react-native';
+import { Platform, StyleSheet, Text, View, Button, ProgressBarAndroid } from 'react-native';
 import { AudioRecorder, AudioUtils } from 'react-native-audio';
 import Sound from 'react-native-sound';
 import RNFetchBlob from 'rn-fetch-blob';
@@ -9,7 +9,7 @@ const audioPath = AudioUtils.DocumentDirectoryPath + '/test.awb';
 
 export default class App extends Component {
   state = {
-    soundObj: null,
+    audioFileURL: null,
     isRecording: false,
     isPlaying: false,
     text: ''
@@ -18,18 +18,9 @@ export default class App extends Component {
   componentDidMount() {
     AudioRecorder.onProgress = ({ currentTime }) => {
       console.log(currentTime);
-      if (currentTime >= 5) {
-        AudioRecorder.stopRecording();
+      if (currentTime >= 59) {
+        this.stopRecording();
       }
-    };
-
-    AudioRecorder.onFinished = object => {
-      console.log(object);
-      this.setState({
-        soundObj: object,
-        isRecording: false
-      });
-      this.recognize(object.audioFileURL);
     };
   }
 
@@ -42,18 +33,26 @@ export default class App extends Component {
 
     console.log('start recording');
     this.setState({
-      isRecording: true
+      isRecording: true,
+      text: ''
     });
     return await AudioRecorder.startRecording();
   }
 
-  play() {
-    const { soundObj } = this.state;
-    console.log(soundObj);
-    if (!soundObj) return;
+  async stopRecording() {
+    const path = await AudioRecorder.stopRecording();
+    this.setState({
+      audioFileURL: path,
+      isRecording: false,
+      isRecognizing: false,
+    });
+    this.recognize(path);
+  }
 
-    const path = soundObj.audioFileURL.match(/file:\/\/(.*)/)[1];
-    console.log(path);
+  play() {
+    const { path } = this.state;
+    if (!path) return;
+
     const sound = new Sound(path, Sound.DOCUMENT, error => {
       if (error) {
         console.log(error);
@@ -78,6 +77,9 @@ export default class App extends Component {
   }
 
   recognize(path) {
+    this.setState({
+      isRecognizing: true,
+    });
     this.fileToBase64(path)
       .then(content => {
         const url = `https://speech.googleapis.com/v1/speech:recognize?key=${API_KEY}`;
@@ -107,9 +109,10 @@ export default class App extends Component {
       })
       .then(res => res.json())
       .then(res => {
-        console.log(res.results);
-        const text = res.results[0].alternatives[0].transcript;
+        console.log(res);
+        const text = res.results ? res.results[0].alternatives[0].transcript : 'よく聞き取れませんでした＼(^o^)／';
         this.setState({
+          isRecognizing: false,
           text
         });
       })
@@ -135,21 +138,19 @@ export default class App extends Component {
   render() {
     return (
       <View style={styles.container}>
+        <View style={styles.container}>
+          <Text style={styles.text}>{this.state.text}</Text>
+        </View>
+        {this.state.isRecognizing &&
+          <View style={styles.progressContainer}>
+            <ProgressBarAndroid styleAttr="Horizontal" />
+          </View>
+        }
         <Button
-          title="録音"
-          disabled={this.state.isRecording || this.state.isPlaying}
-          onPress={() => this.startRecording()}
+          title={this.state.isRecording ? '録音終了' : '録音開始'}
+          disabled={this.state.isPlaying || this.state.isRecognizing}
+          onPress={() => this.state.isRecording ? this.stopRecording() : this.startRecording()}
         />
-        <Button
-          title="再生"
-          disabled={
-            !this.state.soundObj ||
-            this.state.isRecording ||
-            this.state.isPlaying
-          }
-          onPress={() => this.play()}
-        />
-        <Text>{this.state.text}</Text>
       </View>
     );
   }
@@ -160,6 +161,15 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingBottom: 32,
     backgroundColor: '#F5FCFF'
+  },
+  text: {
+    fontSize: 32
+  },
+  progressContainer: {
+    width: '100%',
+    justifyContent: 'space-evenly',
+    padding: 10
   }
 });
