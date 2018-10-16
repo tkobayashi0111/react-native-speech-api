@@ -10,7 +10,8 @@
     "react": "16.5.1",
     "react-native": "0.57.2",
     "react-native-audio": "^4.2.2",
-    "react-native-sound": "^0.10.9"
+    "react-native-sound": "^0.10.9",
+    "rn-fetch-blob": "^0.10.13"
   },
   "devDependencies": {
     "babel-jest": "23.6.0",
